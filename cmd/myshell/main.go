@@ -36,14 +36,7 @@ func main() {
 			os.Exit(code)
 
 		case "echo":
-			text := strings.Join(cmd[1:], " ")
-			if strings.Contains(text, "'") || strings.Contains(text, "\"") {
-				text = strings.ReplaceAll(text, "'", "")
-				text = strings.ReplaceAll(text, "\"", "")
-				fmt.Println(text)
-			} else {
-				fmt.Println(text)
-			}
+			fmt.Println(strings.Join(cmd[1:], " "))
 
 		case "type":
 			if len(cmd) < 2 {
@@ -108,15 +101,22 @@ func execCommand(command string, args []string) {
 }
 
 func parseArgs(input string) []string {
-	re := regexp.MustCompile(`'([^']*)'|([^' ]+)`)
+	re := regexp.MustCompile(`'(.*?)'|\"([^\\"]*(?:\\.[^\\"]*)*)\"|([^'" ]+)`)
 	matches := re.FindAllStringSubmatch(input, -1)
 
 	var result []string
 	for _, match := range matches {
 		if match[1] != "" {
+			// Handle single-quoted string (literal interpretation)
 			result = append(result, match[1])
 		} else if match[2] != "" {
-			result = append(result, match[2])
+			// Handle double-quoted string (unescape special characters)
+			unescaped := strings.ReplaceAll(match[2], `\\`, `\\`)
+			unescaped = strings.ReplaceAll(unescaped, `\"`, `"`)
+			result = append(result, unescaped)
+		} else if match[3] != "" {
+			// Handle unquoted string
+			result = append(result, match[3])
 		}
 	}
 
