@@ -13,7 +13,7 @@ import (
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	commands := []string{"exit", "echo", "type", "pwd"}
+	commands := []string{"exit", "echo", "type", "pwd", "cd"}
 
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -33,8 +33,10 @@ func main() {
 				code, _ = strconv.Atoi(cmd[1])
 			}
 			os.Exit(code)
+
 		case "echo":
 			fmt.Println(strings.Join(cmd[1:], " "))
+
 		case "type":
 			if len(cmd) < 2 {
 				fmt.Println("type: missing argument")
@@ -48,9 +50,17 @@ func main() {
 			} else {
 				fmt.Printf("%s: not found\n", cmd[1])
 			}
+
 		case "pwd":
 			cwd, _ := os.Getwd()
 			fmt.Println(cwd)
+
+		case "cd":
+			err := os.Chdir(cmd[1])
+			if err != nil {
+				fmt.Printf("cd: %s: No such file or directory\n", cmd[1])
+			}
+
 		default:
 			if foundCommand := findCommand(cmd[0]); foundCommand != "" {
 				execCommand(foundCommand, cmd)
