@@ -101,24 +101,48 @@ func execCommand(command string, args []string) {
 }
 
 func parseArgs(input string) []string {
-	re := regexp.MustCompile(`'(.*?)'|\"([^\\"]*(?:\\.[^\\"]*)*)\"|([^'" ]+)`)
+	var result []string
+	// Regex to match single-quoted, double-quoted, or unquoted words
+	re := regexp.MustCompile(`'([^']*)'|"([^"]*)"|(\S+)`)
 	matches := re.FindAllStringSubmatch(input, -1)
 
-	var result []string
 	for _, match := range matches {
-		if match[1] != "" {
-			// Handle single-quoted string (literal interpretation)
-			result = append(result, match[1])
-		} else if match[2] != "" {
-			// Handle double-quoted string (unescape special characters)
-			unescaped := strings.ReplaceAll(match[2], `\\`, `\\`)
-			unescaped = strings.ReplaceAll(unescaped, `\"`, `"`)
-			result = append(result, unescaped)
-		} else if match[3] != "" {
-			// Handle unquoted string
-			result = append(result, match[3])
+		var arg string
+		if match[1] != "" { // Single-quoted
+			arg = match[1]
+		} else if match[2] != "" { // Double-quoted
+			arg = match[2]
+		} else if match[3] != "" { // Unquoted
+			arg = match[3]
+			arg = processEscapes(arg)
 		}
+
+		result = append(result, arg)
 	}
 
 	return result
+}
+
+func processEscapes(input string) string {
+	var result strings.Builder
+	escaped := false
+
+	for i := 0; i < len(input); i++ {
+		char := input[i]
+
+		if escaped {
+			result.WriteByte(char)
+			escaped = false
+			continue
+		}
+
+		if char == '\\' {
+			escaped = true
+			continue
+		}
+
+		result.WriteByte(char)
+	}
+
+	return result.String()
 }
