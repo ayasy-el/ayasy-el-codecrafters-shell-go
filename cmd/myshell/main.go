@@ -13,7 +13,7 @@ import (
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	commands := []string{"exit", "echo", "type"}
+	commands := []string{"exit", "echo", "type", "pwd"}
 
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
@@ -48,6 +48,9 @@ func main() {
 			} else {
 				fmt.Printf("%s: not found\n", cmd[1])
 			}
+		case "pwd":
+			cwd, _ := os.Getwd()
+			fmt.Println(cwd)
 		default:
 			if foundCommand := findCommand(cmd[0]); foundCommand != "" {
 				execCommand(foundCommand, cmd)
