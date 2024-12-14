@@ -56,6 +56,13 @@ func main() {
 			fmt.Println(cwd)
 
 		case "cd":
+			if strings.HasPrefix(cmd[1], "~") {
+				if len(cmd[1]) > 1 && cmd[1][:2] == "~/" {
+					cmd[1] = filepath.Join(os.Getenv("HOME"), cmd[1][2:])
+				} else if cmd[1] == "~" {
+					cmd[1] = os.Getenv("HOME")
+				}
+			}
 			err := os.Chdir(cmd[1])
 			if err != nil {
 				fmt.Printf("cd: %s: No such file or directory\n", cmd[1])
