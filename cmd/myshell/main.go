@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ func main() {
 			break
 		}
 
-		cmd := strings.Fields(scanner.Text())
+		cmd := parseArgs(scanner.Text())
 		if len(cmd) == 0 {
 			continue
 		}
@@ -35,7 +36,14 @@ func main() {
 			os.Exit(code)
 
 		case "echo":
-			fmt.Println(strings.Join(cmd[1:], " "))
+			text := strings.Join(cmd[1:], " ")
+			if strings.Contains(text, "'") || strings.Contains(text, "\"") {
+				text = strings.ReplaceAll(text, "'", "")
+				text = strings.ReplaceAll(text, "\"", "")
+				fmt.Println(text)
+			} else {
+				fmt.Println(text)
+			}
 
 		case "type":
 			if len(cmd) < 2 {
@@ -97,4 +105,20 @@ func execCommand(command string, args []string) {
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
+}
+
+func parseArgs(input string) []string {
+	re := regexp.MustCompile(`'([^']*)'|([^' ]+)`)
+	matches := re.FindAllStringSubmatch(input, -1)
+
+	var result []string
+	for _, match := range matches {
+		if match[1] != "" {
+			result = append(result, match[1])
+		} else if match[2] != "" {
+			result = append(result, match[2])
+		}
+	}
+
+	return result
 }
