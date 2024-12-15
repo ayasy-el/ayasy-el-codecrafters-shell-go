@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,34 +21,37 @@ func main() {
 			break
 		}
 
-		cmd := parseArgs(scanner.Text())
-		if len(cmd) == 0 {
+		s := strings.Trim(scanner.Text(), "\r\n")
+		cmd, argstr, _ := strings.Cut(s, " ")
+		args := parseArgs(argstr)
+
+		if cmd == "" {
 			continue
 		}
 
-		switch cmd[0] {
+		switch cmd {
 		case "exit":
 			code := 0
-			if len(cmd) > 1 {
-				code, _ = strconv.Atoi(cmd[1])
+			if len(args) > 0 {
+				code, _ = strconv.Atoi(args[0])
 			}
 			os.Exit(code)
 
 		case "echo":
-			fmt.Println(strings.Join(cmd[1:], " "))
+			fmt.Println(strings.Join(args, " "))
 
 		case "type":
-			if len(cmd) < 2 {
+			if len(args) < 1 {
 				fmt.Println("type: missing argument")
 				continue
 			}
 
-			if slices.Contains(commands, cmd[1]) {
-				fmt.Printf("%s is a shell builtin\n", cmd[1])
-			} else if foundCommand := findCommand(cmd[1]); foundCommand != "" {
-				fmt.Printf("%s is %s\n", cmd[1], foundCommand)
+			if slices.Contains(commands, args[0]) {
+				fmt.Printf("%s is a shell builtin\n", args[0])
+			} else if foundCommand := findCommand(args[0]); foundCommand != "" {
+				fmt.Printf("%s is %s\n", args[0], foundCommand)
 			} else {
-				fmt.Printf("%s: not found\n", cmd[1])
+				fmt.Printf("%s: not found\n", args[0])
 			}
 
 		case "pwd":
@@ -57,23 +59,23 @@ func main() {
 			fmt.Println(cwd)
 
 		case "cd":
-			if strings.HasPrefix(cmd[1], "~") {
-				if len(cmd[1]) > 1 && cmd[1][:2] == "~/" {
-					cmd[1] = filepath.Join(os.Getenv("HOME"), cmd[1][2:])
-				} else if cmd[1] == "~" {
-					cmd[1] = os.Getenv("HOME")
+			if strings.HasPrefix(args[0], "~") {
+				if len(args[0]) > 1 && args[0][:2] == "~/" {
+					args[0] = filepath.Join(os.Getenv("HOME"), args[0][2:])
+				} else if args[0] == "~" {
+					args[0] = os.Getenv("HOME")
 				}
 			}
-			err := os.Chdir(cmd[1])
+			err := os.Chdir(args[0])
 			if err != nil {
-				fmt.Printf("cd: %s: No such file or directory\n", cmd[1])
+				fmt.Printf("cd: %s: No such file or directory\n", args[0])
 			}
 
 		default:
-			if foundCommand := findCommand(cmd[0]); foundCommand != "" {
-				execCommand(foundCommand, cmd)
+			if foundCommand := findCommand(cmd); foundCommand != "" {
+				execCommand(foundCommand, args)
 			} else {
-				fmt.Printf("%s: command not found\n", cmd[0])
+				fmt.Printf("%s: command not found\n", cmd)
 			}
 		}
 	}
@@ -91,7 +93,7 @@ func findCommand(command string) string {
 }
 
 func execCommand(command string, args []string) {
-	cmd := exec.Command(command, args[1:]...)
+	cmd := exec.Command(command, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -100,49 +102,59 @@ func execCommand(command string, args []string) {
 	}
 }
 
-func parseArgs(input string) []string {
-	var result []string
-	// Regex to match single-quoted, double-quoted, or unquoted words
-	re := regexp.MustCompile(`'([^']*)'|"([^"]*)"|(\S+)`)
-	matches := re.FindAllStringSubmatch(input, -1)
-
-	for _, match := range matches {
-		var arg string
-		if match[1] != "" { // Single-quoted
-			arg = match[1]
-		} else if match[2] != "" { // Double-quoted
-			arg = match[2]
-		} else if match[3] != "" { // Unquoted
-			arg = match[3]
-			arg = processEscapes(arg)
+func parseArgs(argstr string) []string {
+	var singleQuote bool
+	var doubleQuote bool
+	var backslash bool
+	var arg string
+	var args []string
+	for _, r := range argstr {
+		switch r {
+		case '\'':
+			if backslash && doubleQuote {
+				arg += "\\"
+			}
+			if backslash || doubleQuote {
+				arg += string(r)
+			} else {
+				singleQuote = !singleQuote
+			}
+			backslash = false
+		case '"':
+			if backslash || singleQuote {
+				arg += string(r)
+			} else {
+				doubleQuote = !doubleQuote
+			}
+			backslash = false
+		case '\\':
+			if backslash || singleQuote {
+				arg += string(r)
+				backslash = false
+			} else {
+				backslash = true
+			}
+		case ' ':
+			if backslash && doubleQuote {
+				arg += "\\"
+			}
+			if backslash || singleQuote || doubleQuote {
+				arg += string(r)
+			} else if arg != "" {
+				args = append(args, arg)
+				arg = ""
+			}
+			backslash = false
+		default:
+			if doubleQuote && backslash {
+				arg += "\\"
+			}
+			arg += string(r)
+			backslash = false
 		}
-
-		result = append(result, arg)
 	}
-
-	return result
-}
-
-func processEscapes(input string) string {
-	var result strings.Builder
-	escaped := false
-
-	for i := 0; i < len(input); i++ {
-		char := input[i]
-
-		if escaped {
-			result.WriteByte(char)
-			escaped = false
-			continue
-		}
-
-		if char == '\\' {
-			escaped = true
-			continue
-		}
-
-		result.WriteByte(char)
+	if arg != "" {
+		args = append(args, arg)
 	}
-
-	return result.String()
+	return args
 }
