@@ -59,6 +59,11 @@ func main() {
 			fmt.Println(cwd)
 
 		case "cd":
+			if len(args) < 1 {
+				fmt.Println("cd: missing argument")
+				continue
+			}
+
 			if strings.HasPrefix(args[0], "~") {
 				if len(args[0]) > 1 && args[0][:2] == "~/" {
 					args[0] = filepath.Join(os.Getenv("HOME"), args[0][2:])
@@ -171,49 +176,31 @@ func splitCommandAndArgs(input string) (string, string) {
 		case '\'':
 			if !inDoubleQuote {
 				inSingleQuote = !inSingleQuote
-				if !isCmdPart {
-					argsBuilder.WriteRune(r)
-				}
-			} else {
-				if isCmdPart {
-					cmdBuilder.WriteRune(r)
-				} else {
-					argsBuilder.WriteRune(r)
-				}
+			} else if isCmdPart {
+				cmdBuilder.WriteRune(r)
 			}
 		case '"':
 			if !inSingleQuote {
 				inDoubleQuote = !inDoubleQuote
-				if !isCmdPart {
-					argsBuilder.WriteRune(r)
-				}
-			} else {
-				if isCmdPart {
-					cmdBuilder.WriteRune(r)
-				} else {
-					argsBuilder.WriteRune(r)
-				}
+			} else if isCmdPart {
+				cmdBuilder.WriteRune(r)
 			}
 		case ' ':
-			if inSingleQuote || inDoubleQuote {
-				if isCmdPart {
+			if isCmdPart {
+				if inSingleQuote || inDoubleQuote {
 					cmdBuilder.WriteRune(r)
 				} else {
-					argsBuilder.WriteRune(r)
-				}
-			} else {
-				if isCmdPart {
 					isCmdPart = false
-				} else {
-					argsBuilder.WriteRune(r)
 				}
 			}
 		default:
 			if isCmdPart {
 				cmdBuilder.WriteRune(r)
-			} else {
-				argsBuilder.WriteRune(r)
 			}
+		}
+
+		if !isCmdPart {
+			argsBuilder.WriteRune(r)
 		}
 	}
 
