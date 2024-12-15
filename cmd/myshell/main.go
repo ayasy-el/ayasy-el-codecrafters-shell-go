@@ -22,7 +22,7 @@ func main() {
 		}
 
 		s := strings.Trim(scanner.Text(), "\r\n")
-		cmd, argstr, _ := strings.Cut(s, " ")
+		cmd, argstr := splitCommandAndArgs(s)
 		args := parseArgs(argstr)
 
 		if cmd == "" {
@@ -157,4 +157,65 @@ func parseArgs(argstr string) []string {
 		args = append(args, arg)
 	}
 	return args
+}
+
+func splitCommandAndArgs(input string) (string, string) {
+	var cmdBuilder strings.Builder
+	var argsBuilder strings.Builder
+
+	var inSingleQuote, inDoubleQuote bool
+	var isCmdPart = true
+
+	for _, r := range input {
+		switch r {
+		case '\'':
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+				if !isCmdPart {
+					argsBuilder.WriteRune(r)
+				}
+			} else {
+				if isCmdPart {
+					cmdBuilder.WriteRune(r)
+				} else {
+					argsBuilder.WriteRune(r)
+				}
+			}
+		case '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+				if !isCmdPart {
+					argsBuilder.WriteRune(r)
+				}
+			} else {
+				if isCmdPart {
+					cmdBuilder.WriteRune(r)
+				} else {
+					argsBuilder.WriteRune(r)
+				}
+			}
+		case ' ':
+			if inSingleQuote || inDoubleQuote {
+				if isCmdPart {
+					cmdBuilder.WriteRune(r)
+				} else {
+					argsBuilder.WriteRune(r)
+				}
+			} else {
+				if isCmdPart {
+					isCmdPart = false
+				} else {
+					argsBuilder.WriteRune(r)
+				}
+			}
+		default:
+			if isCmdPart {
+				cmdBuilder.WriteRune(r)
+			} else {
+				argsBuilder.WriteRune(r)
+			}
+		}
+	}
+
+	return strings.TrimSpace(cmdBuilder.String()), strings.TrimSpace(argsBuilder.String())
 }
